@@ -1,0 +1,62 @@
+from brython_robot4 import init, load_scene_from_url, get_url_parameter
+from browser import aio
+
+# 機器人蛇形巡邏採收程式
+async def robot_actions(robot):
+    print("開始執行蛇形巡邏採收程式。")
+
+    # 採收當前格子胡蘿蔔
+    def harvest_here():
+        while robot.background_is("pale_grass"):
+            robot.pick_carrot()
+
+    async def snake_path():
+        harvest_here()
+
+        # 設定蛇形的列數與方向
+        go_up = True  # 一開始往上走
+
+        while True:
+            # 一直往上或往下走，直到不能走
+            while robot.front_is_clear():
+                await robot.move(1)
+                harvest_here()
+
+            # 到邊界時，決定是否轉向繼續蛇行
+            if go_up:
+                # 往上走到底時，嘗試左轉
+                await robot.turn_left()
+                if robot.front_is_clear():
+                    await robot.move(1)
+                    harvest_here()
+                    await robot.turn_left()
+                    go_up = False  # 下一輪往下
+                else:
+                    break  # 不能再左轉表示到最左邊，結束
+            else:
+                # 往下走到底時，嘗試右轉
+                await robot.turn_right()
+                if robot.front_is_clear():
+                    await robot.move(1)
+                    harvest_here()
+                    await robot.turn_right()
+                    go_up = True  # 下一輪往上
+                else:
+                    break  # 到最左邊邊界，結束
+
+    await snake_path()
+    print(f"巡邏完成，共採收 {robot.carrots_collected} 個胡蘿蔔。")
+
+# 主程式
+async def main():
+    world_url = get_url_parameter('world')
+    if world_url:
+        scene_data = await load_scene_from_url(world_url)
+        world, robot = init(scene_data, robot_config={"max_carrots": 50})
+    else:
+        world, robot = init(robot_config={"max_carrots": 50})
+
+    if robot:
+        await robot_actions(robot)
+
+aio.run(main())
